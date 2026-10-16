@@ -6,10 +6,11 @@ search. Run candidates through here first and keep the ones that produce
 3 or more steps with a correct answer.
 
 Usage:
-    python probe.py
+    python probe.py <family>    # e.g. universities; reads questions.jsonl
 """
 
 import os
+import sys
 import json
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -21,24 +22,14 @@ load_dotenv()
 MODEL = "subconscious/deepseek-v4.1-flash-marathon"
 BASE_URL = "https://api.subconscious.dev/v1"
 
-# Candidates to test. Gold answers MUST be verified by you against a real
-# source before a question goes into the final set.
-CANDIDATES = [
-    {
-        "id": "agg-1",
-        "question": "Among the four teams that played in the 2026 NFL conference championship games, which team's home stadium has the smallest seating capacity?",
-        "gold": "New England Patriots"
-    },
-    {
-        "id": "sb-2",
-        "question": (
-            "The offensive coordinator of the team that won Super Bowl LX was "
-            "hired as head coach by which NFL team after that season?"
-        ),
-        "gold": "Las Vegas Raiders",
-    },
-    # Add your own below. Aim for 3+ hops and a one-string answer.
-]
+QUESTIONS_PATH = "questions.jsonl"
+
+
+def load_candidates(family):
+    """Read one family from questions.jsonl, skipping unfilled rows."""
+    with open(QUESTIONS_PATH) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    return [r for r in rows if r["family"] == family and r["gold"] != "FILL"]
 
 
 def normalize(s):
@@ -48,18 +39,22 @@ def normalize(s):
     return " ".join(s.lower().replace(".", "").replace(",", "").split())
 
 
-def judge(answer, gold):
-    a, g = normalize(answer), normalize(gold)
+def judge(answer, gold, aliases=()):
+    a = normalize(answer)
     if not a:
         return "EMPTY"
-    if a == g:
+    golds = [normalize(g) for g in (gold, *aliases)]
+    if a in golds:
         return "PASS"
-    if g in a or a in g:
+    if any(g in a or a in g for g in golds):
         return "REVIEW"
     return "FAIL"
 
 
 def main():
+    family = sys.argv[1] if len(sys.argv) > 1 else "sports"
+    candidates = load_candidates(family)
+
     client = OpenAI(
         api_key=os.environ["SUBCONSCIOUS_API_KEY"],
         base_url=BASE_URL,
@@ -70,11 +65,11 @@ def main():
     print("-" * 95)
 
     traces = []
-    for c in CANDIDATES:
+    for c in candidates:
         t = run_agent(c["question"], client=client, model=MODEL)
         t["id"] = c["id"]
         t["gold"] = c["gold"]
-        t["verdict"] = judge(t["answer"], c["gold"])
+        t["verdict"] = judge(t["answer"], c["gold"], c.get("aliases", []))
         traces.append(t)
 
         print(
@@ -85,7 +80,7 @@ def main():
         )
 
     # Save full traces so you can inspect what the model actually searched for.
-    with open("probe_results.json", "w") as f:
+    with open(f"probe_results_{family}.json", "w") as f:
         json.dump(traces, f, indent=2)
 
     # Summary: is this question set hard enough to be worth running?
