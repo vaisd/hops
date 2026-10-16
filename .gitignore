@@ -1,4 +1,5 @@
 .env
 .venv/
 __pycache__/
-probe_results.jsonprobe_results_*.json
+probe_results.json
+probe_results_*.json
