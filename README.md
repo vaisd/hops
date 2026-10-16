@@ -69,6 +69,7 @@ IDs are never reused once results exist.
 | sb-1 | Sports family dropped: sports coverage collapses chains into single articles. Probed at 2 steps. |
 | sb-2 | Sports family dropped; also compared stadium capacities (drift) with a ~4% margin. |
 | uni-4 | Probed at 3 steps / 12 parallel tool calls: wide, not hard. Replaced by uni-5. |
+| infra-2 | Probed at 2 steps: the model named all three Boston Harbor tunnels and their lengths in its first query. |
 
 ## Rejected candidates
 
