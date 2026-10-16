@@ -123,11 +123,15 @@ SYSTEM_PROMPT = (
 )
 
 
+# Step cap, shared by both arms. An experimental parameter, stated in README.
+MAX_STEPS = 12
+
+
 # ---------------------------------------------------------------------------
 # The loop.
 # ---------------------------------------------------------------------------
 
-def run_agent(question, client, model, max_steps=8, timeout=120):
+def run_agent(question, client, model, max_steps=MAX_STEPS, timeout=120):
     """Run one question to completion and return a full trace.
 
     A 'step' is one round-trip to the model. Each step, the model either
@@ -183,6 +187,7 @@ def run_agent(question, client, model, max_steps=8, timeout=120):
                 "completion_tokens": usage.completion_tokens,
                 "finish_reason": response.choices[0].finish_reason,
                 "n_tool_calls": len(message.tool_calls or []),
+                "tool_args": [tc.function.arguments for tc in message.tool_calls or []],
             }
         )
 

@@ -6,7 +6,7 @@ search. Run candidates through here first and keep the ones that produce
 3 or more steps with a correct answer.
 
 Usage:
-    python probe.py <family>    # e.g. universities; reads questions.jsonl
+    python probe.py <family> [id ...]    # e.g. universities; reads questions.jsonl
 """
 
 import os
@@ -52,8 +52,12 @@ def judge(answer, gold, aliases=()):
 
 
 def main():
-    family = sys.argv[1] if len(sys.argv) > 1 else "sports"
+    family = sys.argv[1] if len(sys.argv) > 1 else "universities"
     candidates = load_candidates(family)
+    # Optional: probe a subset by id, e.g. `python probe.py municipalities muni-4`
+    ids = set(sys.argv[2:])
+    if ids:
+        candidates = [c for c in candidates if c["id"] in ids]
 
     client = OpenAI(
         api_key=os.environ["SUBCONSCIOUS_API_KEY"],
@@ -80,7 +84,8 @@ def main():
         )
 
     # Save full traces so you can inspect what the model actually searched for.
-    with open(f"probe_results_{family}.json", "w") as f:
+    suffix = "_" + "_".join(sorted(ids)) if ids else ""
+    with open(f"probe_results_{family}{suffix}.json", "w") as f:
         json.dump(traces, f, indent=2)
 
     # Summary: is this question set hard enough to be worth running?
