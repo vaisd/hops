@@ -32,6 +32,26 @@ Its query log shows 6 of those 10 steps went to resolving the first link
 Each step record includes `tool_args`, the raw arguments of every tool call,
 so dependent and independent queries can be told apart in the traces.
 
+## Search cache
+
+`search_cache.json` maps each query to its Tavily result. Policy for the full run:
+
+1. Start from whatever cache exists.
+2. Run arm one; it fills the cache with any query it issues.
+3. Run arm two against that warm cache.
+4. Commit the resulting cache alongside the results as a frozen artifact. The
+   whole benchmark is then replayable without a Tavily key.
+
+Within the run, both arms see byte-identical results for any query they share,
+so differences come from the runtime, not from Tavily's index shifting.
+
+**Arm two sees a warmer cache than arm one.** Its `tool_seconds`, and so its
+`total_seconds`, are lower for reasons that have nothing to do with the model.
+That is why results report `model_seconds`, steps and tokens, never
+`total_seconds`. This matters most on muni-4, where 6 of 10 probe steps went
+to one hard lookup: if arm two's searches for that link are cached, the arms
+differ in tool latency there, but not in steps or tokens.
+
 ## Aliases are frozen
 
 Alias lists are written when a row is created, before it is probed. They are
@@ -49,6 +69,53 @@ IDs are never reused once results exist.
 | sb-1 | Sports family dropped: sports coverage collapses chains into single articles. Probed at 2 steps. |
 | sb-2 | Sports family dropped; also compared stadium capacities (drift) with a ~4% margin. |
 | uni-4 | Probed at 3 steps / 12 parallel tool calls: wide, not hard. Replaced by uni-5. |
+
+## Rejected candidates
+
+Questions considered and thrown out before they got an ID, grouped by the rule
+they broke. These are the evidence that the remaining set was filtered, not
+just collected.
+
+**Margin too small** (top two close enough that the gold is arguable)
+
+| family | candidate | top two |
+|---|---|---|
+| universities | ACC charter members still in the league, most recently founded | Clemson 1889 vs NC State 1887 |
+| municipalities | Lexington's neighbors, largest land area | Lincoln 14.4 vs Bedford 13.7 sq mi |
+| municipalities | Lexington's neighbors, smallest land area | Belmont 4.7 vs Arlington 5.0 sq mi |
+| municipalities | Wilmington's neighbors, earliest incorporation | Woburn 1642 vs Reading 1644 (also unreliable, below) |
+| companies | Sept 22 2025 S&P additions, most recent IPO | Robinhood Jul 2021 vs AppLovin Apr 2021 |
+| companies | July 2025 S&P additions, most recently founded | Datadog 2010 vs The Trade Desk / Block 2009 |
+
+**Attribute unreliable across sources** (gap may be wide, but depends on which date you accept)
+
+| family | candidate | problem |
+|---|---|---|
+| universities | private ACC members, most recently founded | Miami 1925, but Duke can be dated 1838 or 1924 (renaming) |
+| municipalities | Wilmington's neighbors, earliest incorporation | early colonial incorporation dates disagree between sources |
+| companies | Mar 23 2026 S&P additions, earliest founded | Coherent's 1971 is II-VI's; EchoStar and Vertiv dates are spin-offs |
+| companies | Mar 23 2026 S&P removals, earliest founded | Lamb Weston 1950 as a brand, 2016 as a spin-off |
+| companies | Sept 22 2025 S&P additions, founding year | Emcor 1994 emerged from JWP's bankruptcy |
+| companies | Mar 24 2025 S&P additions, founding year | TKO and Expand Energy are recent merger entities |
+| companies | several 2025-26 batches, IPO year | SPAC listings (Vertiv), spin-off listings, Flex's 1994 re-IPO |
+
+**Set membership ambiguous** (whether the winner belongs in the set is arguable)
+
+| family | candidate | problem |
+|---|---|---|
+| municipalities | Ipswich's neighbors, most water area | Gloucester borders only across Essex Bay; without it, Rowley 2.1 vs Essex 1.9 |
+| municipalities | Plymouth's neighbors, most water area | Duxbury touches only at Saquish Neck; without it, Bourne 12.2 vs Wareham 10.5 |
+| municipalities | Hingham's neighbors, most water area | Hull borders across Hingham Bay; Hull 24.1 vs Cohasset 21.6 |
+| companies | Dec 22 2025 S&P additions, HQ outside the US | CRH lists dual headquarters, Dublin and New York |
+
+**Hop can be skipped** (the question leaks a later hop, or one page answers it)
+
+| family | candidate | problem |
+|---|---|---|
+| municipalities | chain starting from "Taunton North Purchase" (Easton) | the old name gives away Taunton, a later hop |
+| municipalities | muni-4 ending on "most recently incorporated neighbor of Wilmington" | North Reading is also Reading's answer, so skipping a hop still scores |
+| municipalities | Plymouth's neighbor in a different county | Plymouth's own article states the Bourne county line |
+| sports (whole family) | Super Bowl chains | coverage summarizes whole seasons into single articles |
 
 ## Probing
 
