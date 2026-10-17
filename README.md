@@ -21,6 +21,25 @@ Rules each row is held to:
 - Each family has one hard question built as a chain of sequential
   dependencies, where each search can't be written until the previous returns.
 
+## Design rule: hops come from what the model doesn't know
+
+The number of steps a question takes is set by what the model can't recall, not
+by how many hops the question asks for. A chain whose first link is famous
+collapses: the model recalls it and skips toward the end (infra-2 finished in 2
+steps; the Anderson Bridge chain in infra-3 resolved its first two links from
+memory). A chain whose first link can't be recalled forces the sequence:
+"Wood End" (muni-4), a 2026 index change (corp-4), a 2026 rename (corp-1).
+
+The same effect shows up in milder form. In 5 of the first 15 probes (uni-1,
+uni-3, muni-3, infra-1, infra-2) the model's first query already named the
+whole candidate set. Those aren't broken questions, but a "find the set, then
+compare" question whose set is recalled is a 3-step question in a 4-step
+costume: only the attribute lookup is left. The `hops` field records the
+design, and probe step counts record what actually happened.
+
+Practical check before writing a question: can the model name the first link
+without searching? If yes, the chain needs a less recallable starting point.
+
 ## Step cap
 
 `MAX_STEPS = 12` in `agent.py`, identical for both arms. A step is one model
@@ -28,6 +47,12 @@ round-trip. Raised from 8 after muni-4 hit 8 without answering; at 12 it
 finished correctly in 10, so it measures the question rather than the cap.
 Its query log shows 6 of those 10 steps went to resolving the first link
 (the old name "Wood End"), so expect high variance across repeats on it.
+
+**Step counts are not deterministic at temperature 0.** Re-probing with an
+empty cache moved several questions by one step (uni-5 7→6, muni-4 10→9,
+muni-2 3→4), because Tavily returned slightly different results and the
+model's next query depended on them. That is a second source of
+nondeterminism alongside the model itself; repeats capture both.
 
 Each step record includes `tool_args`, the raw arguments of every tool call,
 so dependent and independent queries can be told apart in the traces.
