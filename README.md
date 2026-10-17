@@ -37,6 +37,13 @@ compare" question whose set is recalled is a 3-step question in a 4-step
 costume: only the attribute lookup is left. The `hops` field records the
 design, and probe step counts record what actually happened.
 
+Unrecallable isn't enough on its own; consecutive links must also live on
+different pages. infra-5 starts from a September 2026 metro opening the model
+can't know, but one search result stated both the new line and its terminus
+station, so two links collapsed into one search and it finished in 3 steps.
+The chains that held (uni-5, muni-4, corp-4) each require a comparison across
+several pages between links, which no single page summarizes.
+
 Practical check before writing a question: can the model name the first link
 without searching? If yes, the chain needs a less recallable starting point.
 
