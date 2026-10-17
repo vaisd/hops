@@ -119,6 +119,10 @@ just collected.
 | municipalities | Wilmington's neighbors, earliest incorporation | Woburn 1642 vs Reading 1644 (also unreliable, below) |
 | companies | Sept 22 2025 S&P additions, most recent IPO | Robinhood Jul 2021 vs AppLovin Apr 2021 |
 | companies | July 2025 S&P additions, most recently founded | Datadog 2010 vs The Trade Desk / Block 2009 |
+| infrastructure | Boston–Cambridge Charles River bridges, longest | Harvard Bridge 659.9 vs Longfellow 650.7 m |
+| infrastructure | Red Line terminals including Mattapan, earliest | Ashmont 1928 vs Mattapan 1929 (infra-1 is worded to exclude Mattapan) |
+| infrastructure | bridge that previously held Gordie Howe's "longest cable-stayed span in North America" title | Ravenel 471 vs Port Mann 470 m, and Mexico's Baluarte (520 m) makes the set ambiguous |
+| papers | ICML 2026 honorable mentions, most / fewest authors | ties: 8 vs 8, 3 vs 3 |
 
 **Attribute unreliable across sources** (gap may be wide, but depends on which date you accept)
 
@@ -131,6 +135,11 @@ just collected.
 | companies | Sept 22 2025 S&P additions, founding year | Emcor 1994 emerged from JWP's bankruptcy |
 | companies | Mar 24 2025 S&P additions, founding year | TKO and Expand Energy are recent merger entities |
 | companies | several 2025-26 batches, IPO year | SPAC listings (Vertiv), spin-off listings, Flex's 1994 re-IPO |
+| infrastructure | 2026 airport openings | inauguration and first commercial flight are months apart (Halwara: Feb 1 vs May 15) |
+| infrastructure | anything keyed to Nanjing Line 6's exact day | sources give Sep 29 and Sep 30; Nanjing South station Jun 26 and Jun 28, 2011 |
+| papers | first-author affiliation | joint appointments, preprint vs camera-ready changes, name variants |
+| papers | CVPR 2026 award papers, author count | SAM 3D lists 23 on arXiv as a team paper; proceedings count may differ |
+| papers | ICML 2026 position papers, arXiv date | the API returned v1 dates that contradict the ID's month |
 
 **Set membership ambiguous** (whether the winner belongs in the set is arguable)
 
@@ -140,6 +149,7 @@ just collected.
 | municipalities | Plymouth's neighbors, most water area | Duxbury touches only at Saquish Neck; without it, Bourne 12.2 vs Wareham 10.5 |
 | municipalities | Hingham's neighbors, most water area | Hull borders across Hingham Bay; Hull 24.1 vs Cohasset 21.6 |
 | companies | Dec 22 2025 S&P additions, HQ outside the US | CRH lists dual headquarters, Dublin and New York |
+| papers | ICLR 2026 outstanding papers (any attribute) | secondary sources disagree on whether there were two or three |
 
 **Hop can be skipped** (the question leaks a later hop, or one page answers it)
 
@@ -149,6 +159,13 @@ just collected.
 | municipalities | muni-4 ending on "most recently incorporated neighbor of Wilmington" | North Reading is also Reading's answer, so skipping a hop still scores |
 | municipalities | Plymouth's neighbor in a different county | Plymouth's own article states the Bourne county line |
 | sports (whole family) | Super Bowl chains | coverage summarizes whole seasons into single articles |
+| infrastructure | Toronto Line 5 vs Line 6, longer | the model knows the planned lengths; only the opening dates are post-cutoff |
+| infrastructure | chain through the Detroit–Windsor crossings | Ambassador Bridge and the tunnel are recalled; only the first link is new |
+
+**Unreachable by the benchmark's search tool.** Recent facts can be true and
+still fail here: before committing a question whose gold depends on a 2025-26
+fact, `web_search` was called directly to confirm Tavily surfaces it. paper-4's
+last link passed only with natural phrasings, noted in its row.
 
 ## Probing
 
