@@ -1,5 +1,9 @@
 # hops
 
+> Marathon was faster on all 60 question pairs (about 4.5x at the median) and more consistent, at the same accuracy.
+> It didn't use fewer tokens, and the speedup matches its output speed rather than better handling of long context, so at these lengths it looks like faster serving.
+> See [Results](#results).
+
 A question set for comparing two inference backends on multi-hop search, plus
 the tool-calling loop (`agent.py`) that runs both arms identically.
 
@@ -28,8 +32,8 @@ the precondition for the cost comparison, not a sign the set is too easy.
 ## Results
 
 Run `results/run_20261018_160923.jsonl`, reproduced by
-`python analyze.py results/run_20261018_160923.jsonl` (needs numpy and
-matplotlib). Arms: `subconscious/deepseek-v4.1-flash-marathon` vs
+`python analyze.py results/run_20261018_160923.jsonl` (install with
+`pip install -r requirements.txt`). Arms: `subconscious/deepseek-v4.1-flash-marathon` vs
 `deepseek/deepseek-v4.1-flash-20260910` on OpenRouter pinned to
 `deepinfra/fp8`. All 120 traces share config `1a8c071e718cd635`, and all 247
 baseline steps were served by DeepInfra.
