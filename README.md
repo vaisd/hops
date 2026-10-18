@@ -25,6 +25,109 @@ the precondition for the cost comparison, not a sign the set is too easy.
   `results/run_<timestamp>.jsonl` as they finish; rerunning with `--out` on
   the same file resumes.
 
+## Results
+
+Run `results/run_20261018_160923.jsonl`, reproduced by
+`python analyze.py results/run_20261018_160923.jsonl` (needs numpy and
+matplotlib). Arms: `subconscious/deepseek-v4.1-flash-marathon` vs
+`deepseek/deepseek-v4.1-flash-20260910` on OpenRouter pinned to
+`deepinfra/fp8`. All 120 traces share config `1a8c071e718cd635`, and all 247
+baseline steps were served by DeepInfra.
+
+| | Subconscious | Baseline |
+|---|---|---|
+| Pass (scored) | 58/60 | 55/60 |
+| Pass (hand-checked) | 58/60 | 56/60 |
+| Median steps | 3 | 3 |
+| Median tokens | 5,942 | 6,417 |
+| Median model seconds | 1.76 | 9.27 |
+| P95 model seconds | 6.07 | 37.36 |
+| Seconds per step (median) | 0.56 | 2.69 |
+| Hard four (uni-5, muni-4, corp-4, paper-4), median tokens | 21,169 | 17,138 |
+
+**Faster in every pair.** Subconscious had lower `model_seconds` in 60/60
+(question, repeat) pairs: 4.5× at the median, 2.1× minimum, 14.8× maximum. The
+gap is larger at P95 than at the median.
+
+**Not fewer tokens.** About 6% fewer overall, but more on the hard four,
+because it took more steps on 8 of 20 questions. Token counts here can't show
+pruning in either direction: the loop resends the full conversation each step,
+so billed tokens are whatever the client sends, which is the same for both arms
+given the same conversation. Any pruning happens server-side, after the tokens
+are counted. Token differences reflect behavior (number of steps) only.
+
+**More consistent.** Median token spread across the three repeats of a question
+was 126 for Subconscious vs 1,976 for the baseline; Subconscious used identical
+token counts on all three repeats for 2 of 20 questions (e.g. infra-3: 3,071
+every time), the baseline for none.
+
+**Hand-check of non-passes.** Scores are left as the scorer produced them; the
+alias lists were not changed.
+
+| run | arm | verdict | answer | hand-check |
+|---|---|---|---|---|
+| uni-1 rep2 | baseline | REVIEW | "UC Berkeley (Cal)" | correct; the parenthetical defeats the string match |
+| muni-4 rep3 | baseline | REVIEW | "North Andover" | wrong (gold Andover) |
+| muni-2 rep3 | baseline | FAIL | "Waltham" | wrong (Waltham 1738; Belmont 1859) |
+| corp-4 rep3 | Subconscious | FAIL | "Solexa" | wrong: the Illumina wrong turn seen in probing, not recovered this time |
+| muni-4 rep2 | both | EMPTY | none | hit the 12-step cap |
+| paper-1 rep2 | baseline | EMPTY | none | hit the 12-step cap |
+
+### Is the speedup the runtime or the hardware?
+
+From outside, the 5× latency gap can't be attributed to marathon's runtime
+rather than faster or less loaded serving hardware, plus the OpenRouter
+routing hop on the baseline. One measurement comes closest to separating them.
+
+Each step is fit as `seconds = a + b·(prompt tokens/1k) + c·(output tokens/1k)`.
+`b` is the cost of reading more context; `c` (output length) is included so
+writing time doesn't leak into `b`. If pruning works, marathon's step time
+should grow less as context grows. But faster hardware lowers the slope too,
+since reading context is itself a hardware cost, so raw slopes can't separate
+the two. The comparison is the **relative slope**: `b` divided by the arm's
+own per-step time at 1k context. Uniform hardware speedup leaves it unchanged;
+pruning would shrink it. 95% intervals resample whole runs, since steps within
+a run aren't independent.
+
+![Per-step model time vs context length](results/slope_chart.png)
+
+| | Subconscious | Baseline |
+|---|---|---|
+| Slope, seconds per 1k prompt tokens | 0.015 [0.008, 0.022] | 0.108 [−0.035, 0.285] |
+| Per-step time at 1k context | 0.52 s | 2.66 s |
+| **Relative slope, % per 1k prompt tokens** | **2.9 [1.6, 4.3]** | **4.1 [−1.3, 11.5]** |
+| Seconds per 1k output tokens | 1.95 (~510 tok/s) | 8.88 (~113 tok/s) |
+
+The raw slope is about 7× flatter for Subconscious, which faster hardware
+alone would produce. The relative slopes overlap heavily, so there's no
+detectable pruning effect. The output-speed ratio (8.88 / 1.95 = 4.6×) nearly
+matches the median per-pair speedup (4.5×): the speedup tracks generation
+speed, not context handling.
+
+**Summary.** Marathon was about five times faster per step and more consistent
+run to run, at the same accuracy. It didn't use fewer tokens. Within contexts
+up to 13k tokens, its time per step grew with context at the same relative rate
+as the baseline's, so this run can't attribute the speedup to its runtime rather
+than its hardware.
+
+**Limits of the slope analysis.**
+
+- Not detecting a difference isn't evidence of no difference. The baseline's
+  interval is too wide to rule out a moderate pruning effect.
+- Contexts were short (max 12.8k prompt tokens), where writing dominates step
+  time. Pruning would plausibly matter at 50k–200k.
+- "Hardware-invariant" is approximate. It assumes faster serving speeds up
+  reading and writing by the same factor; reading context and generating
+  tokens load hardware differently, so a hardware or software change can speed
+  one more than the other.
+- Prefix caching on either side would make re-sent context nearly free and
+  flatten both slopes regardless of pruning. Whether either arm caches wasn't
+  checked.
+- The intercept includes network time, which is higher on the baseline through
+  OpenRouter (0.36 s vs 0.29 s) and slightly inflates its denominator.
+- The fit is linear. Attention cost grows faster than linearly at long
+  contexts, so it shouldn't be extended past the observed range.
+
 ## questions.jsonl
 
 One row per question: `id`, `family`, `hops`, `question`, `gold`, `aliases`,
