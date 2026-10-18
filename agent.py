@@ -127,11 +127,18 @@ SYSTEM_PROMPT = (
 MAX_STEPS = 12
 
 
+def config_fingerprint():
+    """Hash of everything that must be byte-identical across arms."""
+    blob = json.dumps({"system": SYSTEM_PROMPT, "tools": TOOLS, "max_steps": MAX_STEPS},
+                      sort_keys=True).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
+
+
 # ---------------------------------------------------------------------------
 # The loop.
 # ---------------------------------------------------------------------------
 
-def run_agent(question, client, model, max_steps=MAX_STEPS, timeout=120):
+def run_agent(question, client, model, max_steps=MAX_STEPS, timeout=120, extra_body=None):
     """Run one question to completion and return a full trace.
 
     A 'step' is one round-trip to the model. Each step, the model either
@@ -165,6 +172,7 @@ def run_agent(question, client, model, max_steps=MAX_STEPS, timeout=120):
                 tools=TOOLS,
                 temperature=0,
                 timeout=timeout,
+                extra_body=extra_body,
             )
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
@@ -188,6 +196,9 @@ def run_agent(question, client, model, max_steps=MAX_STEPS, timeout=120):
                 "finish_reason": response.choices[0].finish_reason,
                 "n_tool_calls": len(message.tool_calls or []),
                 "tool_args": [tc.function.arguments for tc in message.tool_calls or []],
+                # Which upstream actually served this step (OpenRouter reports it;
+                # other endpoints may not). Lets us verify provider pinning held.
+                "provider": (response.model_extra or {}).get("provider"),
             }
         )
 

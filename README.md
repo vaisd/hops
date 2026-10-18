@@ -3,6 +3,28 @@
 A question set for comparing two inference backends on multi-hop search, plus
 the tool-calling loop (`agent.py`) that runs both arms identically.
 
+## What is compared
+
+Accuracy is reported to establish that both arms solve the same problems; the
+comparison of interest is cost (steps, tokens, `model_seconds`) at matched
+accuracy. If one arm failed many questions, its token counts would measure
+abandonment rather than efficiency, so near-ceiling accuracy on both arms is
+the precondition for the cost comparison, not a sign the set is too easy.
+
+## Run protocol
+
+- Both arms run the identical loop in `agent.py`: same system prompt, same tool
+  schema, same `MAX_STEPS = 12`, temperature 0. `run.py` stamps every trace
+  with `config`, a hash of those three, so a mismatch is visible after the fact.
+- The baseline arm goes through OpenRouter pinned to a single provider with
+  fallbacks disabled (`BASELINE_PROVIDER` in `.env`), and every step records
+  which provider actually served it (`served_by`).
+- Arms are interleaved per question, and the order alternates (A then B, then
+  B then A), so time-of-day load affects both arms equally.
+- 20 questions × 3 repeats × 2 arms = 120 runs, appended to
+  `results/run_<timestamp>.jsonl` as they finish; rerunning with `--out` on
+  the same file resumes.
+
 ## questions.jsonl
 
 One row per question: `id`, `family`, `hops`, `question`, `gold`, `aliases`,
@@ -66,23 +88,23 @@ so dependent and independent queries can be told apart in the traces.
 
 ## Search cache
 
-`search_cache.json` maps each query to its Tavily result. Policy for the full run:
+`search_cache.json` maps each query to its Tavily result. The full run starts
+from whatever cache exists, both arms read and fill it as they go, and the
+resulting file is committed alongside the results as a frozen artifact. The
+whole benchmark is then replayable without a Tavily key.
 
-1. Start from whatever cache exists.
-2. Run arm one; it fills the cache with any query it issues.
-3. Run arm two against that warm cache.
-4. Commit the resulting cache alongside the results as a frozen artifact. The
-   whole benchmark is then replayable without a Tavily key.
+Any query issued by both arms gets byte-identical results, so differences come
+from the runtime, not from Tavily's index shifting mid-run.
 
-Within the run, both arms see byte-identical results for any query they share,
-so differences come from the runtime, not from Tavily's index shifting.
-
-**Arm two sees a warmer cache than arm one.** Its `tool_seconds`, and so its
-`total_seconds`, are lower for reasons that have nothing to do with the model.
-That is why results report `model_seconds`, steps and tokens, never
-`total_seconds`. This matters most on muni-4, where 6 of 10 probe steps went
-to one hard lookup: if arm two's searches for that link are cached, the arms
-differ in tool latency there, but not in steps or tokens.
+**Interleaving means whichever arm runs second on a question often hits a warm
+cache.** Its `tool_seconds`, and so its `total_seconds`, are lower for reasons
+that have nothing to do with the model. Alternating the order spreads this
+evenly between arms, but per-question it still makes `tool_seconds` and
+`total_seconds` invalid for comparison. That is why results report
+`model_seconds`, steps and tokens, never `total_seconds`. It matters most on
+muni-4, where 6 of 10 probe steps went to one hard lookup: if the second arm's
+searches for that link are cached, the arms differ in tool latency there, but
+not in steps or tokens.
 
 ## Aliases are frozen
 
